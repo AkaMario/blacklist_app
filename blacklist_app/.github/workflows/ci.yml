@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: blacklist_app/blacklist_app
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install Poetry
+        run: pip install poetry
+
+      - name: Install dependencies
+        run: poetry install --with dev --no-interaction
+
+      - name: Validate Python syntax
+        run: poetry run python -m compileall src
+
+      - name: Run tests
+        shell: bash
+        run: |
+          if find tests -name "*.py" | grep -q .; then
+            poetry run pytest --maxfail=1 --disable-warnings -q
+          else
+            echo "No test files found. Skipping pytest."
+          fi
