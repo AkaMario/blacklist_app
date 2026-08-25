@@ -8,10 +8,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: blacklist_app/blacklist_app
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -31,10 +27,5 @@ jobs:
         run: poetry run python -m compileall src
 
       - name: Run tests
-        shell: bash
-        run: |
-          if find tests -name "*.py" | grep -q .; then
-            poetry run pytest --maxfail=1 --disable-warnings -q
-          else
-            echo "No test files found. Skipping pytest."
-          fi
+        run: poetry run pytest -q
+
