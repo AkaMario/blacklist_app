@@ -21,6 +21,11 @@ def test_create_requires_authorization(client):
     assert response.status_code == 401
     assert response.get_json()["error"] == "Unauthorized"
 
+def test_check_rejects_invalid_email_format(client, auth_headers):
+    response = client.get("/blacklists/not-an-email", headers=auth_headers)
+
+    assert response.status_code == 400
+    assert response.get_json()["error"] == "Bad Request"
 
 def test_create_rejects_invalid_authorization(client):
     response = client.post(
