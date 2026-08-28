@@ -7,8 +7,7 @@ services:
     ports:
       - "5001:8080"
     depends_on:
-      db:
-        condition: service_healthy
+      - db
     env_file:
       - .env
     environment:
@@ -22,10 +21,5 @@ services:
       POSTGRES_DB: blacklist_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d blacklist_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
 volumes:
   postgres_data:

@@ -57,5 +57,5 @@ jobs:
           PY
 
       - name: Run tests
-        run: poetry run pytest -q --cov=src --cov-report=term-missing
+        run: poetry run pytest -q
 

@@ -31,9 +31,9 @@ class BlacklistRepository:
             return blacklist
         except IntegrityError as e:
             db.session.rollback()
-            raise ConflictError(
-                f"Email {blacklist_data.get('email')} is already in the blacklist"
-            ) from e
+            if "unique constraint" in str(e).lower() or "duplicate key" in str(e).lower():
+                raise ConflictError(f"Email {blacklist_data.get('email')} is already in the blacklist")
+            raise
 
     def get_by_email(self, email: str) -> Optional[Blacklist]:
         """

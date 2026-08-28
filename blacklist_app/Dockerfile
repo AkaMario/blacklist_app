@@ -53,11 +53,3 @@ EXPOSE 8080
 # Command to run the application
 CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:8080", "src.main:app"]
 
-FROM base AS test
-
-RUN poetry install --with dev --no-root
-COPY ./src /app/src
-COPY ./tests /app/tests
-
-CMD ["poetry", "run", "pytest", "-q", "--cov=src", "--cov-report=term-missing"]
-
