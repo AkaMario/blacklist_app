@@ -1,0 +1,41 @@
+[tool.poetry]
+name = "blacklist_app"
+version = "0.1.0"
+description = "Microservice for managing email blacklist in the system"
+authors = ["andres.pena@uniandes.edu.co"]
+packages = [{include = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+flask = "^3.0.0"
+flask-sqlalchemy = "^3.1.1"
+flask-restful = "^0.3.10"
+flask-marshmallow = "^1.2.0"
+marshmallow-sqlalchemy = "^1.0.0"
+flask-jwt-extended = "^4.6.0"
+flask-cors = "^4.0.0"
+psycopg2-binary = "^2.9.9"
+python-dotenv = "^1.0.0"
+werkzeug = "^3.0.0"
+gunicorn = "^21.2.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+pytest-flask = "^1.3.0"
+pytest-mock = "^3.12.0"
+pytest-cov = "^4.1.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 90
+
