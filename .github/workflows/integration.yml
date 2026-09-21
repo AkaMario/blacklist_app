@@ -1,0 +1,120 @@
+name: Postman integration
+
+on:
+  pull_request:
+    branches: [main]
+    types: [closed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pruebas_integracion:
+    name: pruebas_integracion
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/blacklist_db
+      BEARER_TOKEN: integration-test-token
+      COLLECTION: tests/integration/postman/Black_list.postman_collection.json
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: blacklist_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d blacklist_db"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Checkout merged commit
+        uses: actions/checkout@v4
+
+      - name: Check collection is available
+        run: |
+          if [ ! -f "$COLLECTION" ]; then
+            echo "::error::Exporta Black_list desde Postman (Collection v2.1) a $COLLECTION."
+            exit 1
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install API dependencies
+        run: |
+          python -m pip install poetry
+          poetry install --only main --no-interaction
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Newman
+        run: npm install --global newman@6.2.1
+
+      - name: Start API with HTTPS
+        run: |
+          openssl req -x509 -newkey rsa:2048 -nodes \
+            -keyout "$RUNNER_TEMP/api.key" \
+            -out "$RUNNER_TEMP/api.crt" \
+            -days 1 -subj '/CN=localhost' \
+            -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1'
+          poetry run gunicorn --workers 1 --bind 127.0.0.1:5001 \
+            --certfile "$RUNNER_TEMP/api.crt" \
+            --keyfile "$RUNNER_TEMP/api.key" \
+            src.main:app > "$RUNNER_TEMP/api.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/api.pid"
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error --max-time 2 \
+              --cacert "$RUNNER_TEMP/api.crt" \
+              https://localhost:5001/blacklists/ping; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/api.log"
+          exit 1
+
+      - name: Run every request in Black_list
+        run: |
+          newman run "$COLLECTION" \
+            --env-var "base_url=https://localhost:5001" \
+            --env-var "bearer_token=$BEARER_TOKEN" \
+            --ssl-extra-ca-certs "$RUNNER_TEMP/api.crt" \
+            --timeout 300000 \
+            --timeout-request 15000 \
+            --timeout-script 10000 \
+            --reporters cli,junit \
+            --reporter-junit-export reports/newman.xml
+
+      - name: Upload integration report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: black-list-newman-report
+          path: reports/newman.xml
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Show API logs on failure
+        if: failure()
+        run: cat "$RUNNER_TEMP/api.log" 2>/dev/null || true
+
+      - name: Stop API
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/api.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/api.pid")" 2>/dev/null || true
+          fi

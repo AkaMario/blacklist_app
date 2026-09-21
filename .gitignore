@@ -45,6 +45,7 @@ htmlcov/
 .tox/
 coverage.xml
 junit.xml
+reports/
 *.cover
 .pytest/
 
@@ -62,4 +63,3 @@ Thumbs.db
 
 # Poetry
 poetry.lock
-

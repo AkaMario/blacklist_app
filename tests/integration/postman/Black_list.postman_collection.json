@@ -1,0 +1,697 @@
+{
+  "info": {
+    "name": "Black_list",
+    "description": "Pruebas de integración del servicio blacklist_email. Generada desde las capacidades del repositorio; importable en Postman. Ejecutar completa en orden sobre una base de pruebas.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{bearer_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://localhost:5001",
+      "type": "string"
+    },
+    {
+      "key": "bearer_token",
+      "value": "integration-test-token",
+      "type": "string"
+    },
+    {
+      "key": "app_uuid",
+      "value": "123e4567-e89b-12d3-a456-426614174000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Salud sin autenticación",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/blacklists/ping",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const runId = pm.variables.replaceIn(\"{{$guid}}\");",
+              "pm.collectionVariables.set(\"test_email\", `newman-${runId}@example.com`);",
+              "pm.collectionVariables.set(\"optional_email\", `optional-${runId}@example.com`);",
+              "pm.collectionVariables.set(\"null_email\", `null-${runId}@example.com`);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Respuesta JSON\", () => pm.response.to.be.json);",
+              "const blacklistResponse = pm.response.json();",
+              "pm.test(\"Servicio disponible\", () => { pm.expect(blacklistResponse.message).to.eql(\"pong\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Consultar correo no registrado",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/blacklists/{{test_email}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Respuesta JSON\", () => pm.response.to.be.json);",
+              "const blacklistResponse = pm.response.json();",
+              "pm.test(\"Correo fuera de blacklist\", () => { pm.expect(blacklistResponse.is_blacklisted).to.eql(false); pm.expect(blacklistResponse.blocked_reason).to.eql(null); pm.expect(blacklistResponse.email).to.eql(pm.collectionVariables.get(\"test_email\")); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Registrar correo con motivo",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/blacklists",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\": \"{{test_email}}\", \"app_uuid\": \"{{app_uuid}}\", \"blocked_reason\": \"Prueba de integración Newman\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado HTTP 201\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Respuesta JSON\", () => pm.response.to.be.json);",
+              "const blacklistResponse = pm.response.json();",
+              "pm.test(\"Registro creado\", () => { pm.expect(blacklistResponse.email).to.eql(pm.collectionVariables.get(\"test_email\")); pm.expect(blacklistResponse.id).to.match(/^[0-9a-f-]{36}$/i); pm.expect(Number.isNaN(Date.parse(blacklistResponse.created_at))).to.eql(false); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Consultar correo registrado",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/blacklists/{{test_email}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Respuesta JSON\", () => pm.response.to.be.json);",
+              "const blacklistResponse = pm.response.json();",
+              "pm.test(\"Registro persistido con motivo\", () => { pm.expect(blacklistResponse.is_blacklisted).to.eql(true); pm.expect(blacklistResponse.email).to.eql(pm.collectionVariables.get(\"test_email\")); pm.expect(blacklistResponse.blocked_reason).to.eql(\"Prueba de integración Newman\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Rechazar correo duplicado",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/blacklists",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\": \"{{test_email}}\", \"app_uuid\": \"{{app_uuid}}\", \"blocked_reason\": \"Prueba de integración Newman\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado HTTP 409\", () => pm.response.to.have.status(409));",
+              "pm.test(\"Respuesta JSON\", () => pm.response.to.be.json);",
+              "const blacklistResponse = pm.response.json();",
+              "pm.test(\"Conflicto informado\", () => { pm.expect(blacklistResponse.error).to.eql(\"Conflict\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Registrar sin motivo opcional",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/blacklists",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\": \"{{optional_email}}\", \"app_uuid\": \"{{app_uuid}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado HTTP 201\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Respuesta JSON\", () => pm.response.to.be.json);",
+              "const blacklistResponse = pm.response.json();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Consultar registro sin motivo",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/blacklists/{{optional_email}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Respuesta JSON\", () => pm.response.to.be.json);",
+              "const blacklistResponse = pm.response.json();",
+              "pm.test(\"Motivo ausente persistido\", () => { pm.expect(blacklistResponse.is_blacklisted).to.eql(true); pm.expect(blacklistResponse.blocked_reason).to.eql(null); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 Registrar motivo nulo",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/blacklists",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\": \"{{null_email}}\", \"app_uuid\": \"{{app_uuid}}\", \"blocked_reason\": null}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado HTTP 201\", () => pm.response.to.have.status(201));",
+              "pm.test(\"Respuesta JSON\", () => pm.response.to.be.json);",
+              "const blacklistResponse = pm.response.json();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 Consultar motivo nulo",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/blacklists/{{null_email}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Respuesta JSON\", () => pm.response.to.be.json);",
+              "const blacklistResponse = pm.response.json();",
+              "pm.test(\"Motivo nulo persistido\", () => { pm.expect(blacklistResponse.is_blacklisted).to.eql(true); pm.expect(blacklistResponse.blocked_reason).to.eql(null); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 POST sin token",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/blacklists",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\": \"{{test_email}}\", \"app_uuid\": \"{{app_uuid}}\", \"blocked_reason\": \"Prueba de integración Newman\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado HTTP 401\", () => pm.response.to.have.status(401));",
+              "pm.test(\"Respuesta JSON\", () => pm.response.to.be.json);",
+              "const blacklistResponse = pm.response.json();",
+              "pm.test(\"Acceso rechazado\", () => { pm.expect(blacklistResponse.error).to.eql(\"Unauthorized\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 POST token incorrecto",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/blacklists",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\": \"{{test_email}}\", \"app_uuid\": \"{{app_uuid}}\", \"blocked_reason\": \"Prueba de integración Newman\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "invalid-integration-token",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado HTTP 401\", () => pm.response.to.have.status(401));",
+              "pm.test(\"Respuesta JSON\", () => pm.response.to.be.json);",
+              "const blacklistResponse = pm.response.json();",
+              "pm.test(\"Acceso rechazado\", () => { pm.expect(blacklistResponse.error).to.eql(\"Unauthorized\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 GET sin token",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/blacklists/{{test_email}}",
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado HTTP 401\", () => pm.response.to.have.status(401));",
+              "pm.test(\"Respuesta JSON\", () => pm.response.to.be.json);",
+              "const blacklistResponse = pm.response.json();",
+              "pm.test(\"Acceso rechazado\", () => { pm.expect(blacklistResponse.error).to.eql(\"Unauthorized\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 GET token incorrecto",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/blacklists/{{test_email}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "invalid-integration-token",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado HTTP 401\", () => pm.response.to.have.status(401));",
+              "pm.test(\"Respuesta JSON\", () => pm.response.to.be.json);",
+              "const blacklistResponse = pm.response.json();",
+              "pm.test(\"Acceso rechazado\", () => { pm.expect(blacklistResponse.error).to.eql(\"Unauthorized\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 Email inválido",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/blacklists",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\": \"not-an-email\", \"app_uuid\": \"{{app_uuid}}\", \"blocked_reason\": \"Prueba de integración Newman\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Respuesta JSON\", () => pm.response.to.be.json);",
+              "const blacklistResponse = pm.response.json();",
+              "pm.test(\"Detalle de validación\", () => { pm.expect(blacklistResponse.error).to.eql(\"Bad Request\"); pm.expect(blacklistResponse.details).to.have.property(\"email\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 UUID inválido",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/blacklists",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\": \"{{test_email}}\", \"app_uuid\": \"not-a-uuid\", \"blocked_reason\": \"Prueba de integración Newman\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Respuesta JSON\", () => pm.response.to.be.json);",
+              "const blacklistResponse = pm.response.json();",
+              "pm.test(\"Detalle de validación\", () => { pm.expect(blacklistResponse.error).to.eql(\"Bad Request\"); pm.expect(blacklistResponse.details).to.have.property(\"app_uuid\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "16 Email requerido",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/blacklists",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"app_uuid\": \"{{app_uuid}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Respuesta JSON\", () => pm.response.to.be.json);",
+              "const blacklistResponse = pm.response.json();",
+              "pm.test(\"Detalle de validación\", () => { pm.expect(blacklistResponse.error).to.eql(\"Bad Request\"); pm.expect(blacklistResponse.details).to.have.property(\"email\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "17 UUID requerido",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/blacklists",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\": \"{{test_email}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Respuesta JSON\", () => pm.response.to.be.json);",
+              "const blacklistResponse = pm.response.json();",
+              "pm.test(\"Detalle de validación\", () => { pm.expect(blacklistResponse.error).to.eql(\"Bad Request\"); pm.expect(blacklistResponse.details).to.have.property(\"app_uuid\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "18 Motivo supera 255 caracteres",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/blacklists",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\": \"{{test_email}}\", \"app_uuid\": \"{{app_uuid}}\", \"blocked_reason\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Respuesta JSON\", () => pm.response.to.be.json);",
+              "const blacklistResponse = pm.response.json();",
+              "pm.test(\"Detalle de validación\", () => { pm.expect(blacklistResponse.error).to.eql(\"Bad Request\"); pm.expect(blacklistResponse.details).to.have.property(\"blocked_reason\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "19 Motivo de tipo incorrecto",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/blacklists",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\": \"{{test_email}}\", \"app_uuid\": \"{{app_uuid}}\", \"blocked_reason\": 123}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Respuesta JSON\", () => pm.response.to.be.json);",
+              "const blacklistResponse = pm.response.json();",
+              "pm.test(\"Detalle de validación\", () => { pm.expect(blacklistResponse.error).to.eql(\"Bad Request\"); pm.expect(blacklistResponse.details).to.have.property(\"blocked_reason\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "20 Cuerpo vacío",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/blacklists",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Estado HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Respuesta JSON\", () => pm.response.to.be.json);",
+              "const blacklistResponse = pm.response.json();",
+              "pm.test(\"Cuerpo requerido\", () => { pm.expect(blacklistResponse.error).to.eql(\"Bad Request\"); });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
