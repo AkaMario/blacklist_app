@@ -99,6 +99,8 @@ def check_blacklist(email):
     - 401: Unauthorized
     """
     try:
+        email = create_schema.fields['email'].deserialize(email)
+
         # Check blacklist
         result = blacklist_service.check_blacklist(email)
         
@@ -107,6 +109,12 @@ def check_blacklist(email):
         
         return jsonify(validated_result), 200
         
+    except ValidationError as e:
+        return jsonify({
+            "error": "Bad Request",
+            "message": "Validation failed",
+            "details": {"email": e.messages}
+        }), 400
     except Exception as e:
         return jsonify({
             "error": "Internal Server Error",

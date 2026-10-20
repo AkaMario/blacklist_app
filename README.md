@@ -15,3 +15,6 @@ Pruebas de integración al fusionar un pull request en `main`:
 
 Informe paso a paso y resultados locales:
 [pruebas de integración](docs/informe_pruebas_integracion.md).
+
+Despliegue en Minikube y pruebas de Kubernetes:
+[laboratorio Kubernetes](docs/laboratorio_kubernetes.md).

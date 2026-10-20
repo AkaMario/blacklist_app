@@ -1,5 +1,13 @@
 # Informe de pruebas de integración de blacklist_email
 
+## Objetivo del ejercicio
+
+Construir una colección de pruebas de las capacidades del servicio, entregarla
+en JSON, ejecutarla localmente con Newman y automatizar su ejecución mediante
+el job `pruebas_integracion` de GitHub Actions al fusionar cambios en `main`.
+Este documento registra el procedimiento realizado, sus resultados y los pasos
+para reproducirlo.
+
 ## Repositorio y alcance
 
 - Repositorio: [AkaMario/blacklist_app](https://github.com/AkaMario/blacklist_app).
@@ -14,6 +22,17 @@ visual y posterior exportación desde Postman quedan como pasos manuales, no com
 acciones ya realizadas en la cuenta del usuario.
 
 ## 1. Crear la colección de capacidades
+
+Primero se revisaron las rutas de `src/routes/blacklist_router.py`, las reglas
+de `src/models/blacklist.py`, la autenticación de
+`src/middleware/auth_middleware.py` y la persistencia del servicio en PostgreSQL.
+Se identificaron estas operaciones para construir los escenarios:
+
+| Método | Ruta | Función |
+| --- | --- | --- |
+| GET | `/blacklists/ping` | Verificar disponibilidad |
+| POST | `/blacklists` | Registrar un correo en la lista negra |
+| GET | `/blacklists/{email}` | Consultar si un correo está bloqueado |
 
 Se creó `Black_list` con autenticación Bearer heredada y las variables `base_url`,
 `bearer_token` y `app_uuid`. Cada petición contiene aserciones de estado HTTP y
@@ -137,12 +156,71 @@ El límite total del job es 15 minutos y el de Newman, 5 minutos. No se usa
 
 ## 5. Verificación en GitHub
 
-Los archivos están preparados localmente. No se ha hecho commit, push ni merge,
-y no se afirma haber ejecutado el workflow en GitHub Actions.
+Se comprobó que el commit
+[`4cf8e0b`](https://github.com/AkaMario/blacklist_app/commit/4cf8e0bcb003d445bfeb3b1d35700cbfb8bf004a)
+con la colección y el workflow ya estaba publicado en la rama remota `main`.
+En la consulta realizada durante el ejercicio, GitHub devolvió **0 ejecuciones**
+para `integration.yml`. Posteriormente se intentó iniciarlo manualmente, pero
+la operación fue interrumpida antes de obtener una confirmación. Por ello,
+este informe no acredita una ejecución remota ni un resultado aprobado en Actions.
 
-Después de subir los cambios y fusionar el PR en `main`, abrir el enlace del
-workflow, comprobar el resultado de `pruebas_integracion` y descargar el artefacto
-JUnit. La evidencia de esa ejecución remota queda pendiente de ese merge.
+### Ejecución manual desde el navegador
+
+1. Abrir [Postman integration en GitHub Actions](https://github.com/AkaMario/blacklist_app/actions/workflows/integration.yml).
+2. Pulsar **Run workflow**.
+3. Seleccionar la rama **main** y confirmar con **Run workflow**.
+4. Abrir la ejecución y revisar el job **pruebas_integracion**.
+5. Comprobar el paso **Run every request in Black_list** y descargar el artefacto
+   **black-list-newman-report** para consultar el reporte JUnit.
+
+### Ejecución manual desde la terminal
+
+Con GitHub CLI (`gh`) instalado y una cuenta con permisos para ejecutar Actions:
+
+```sh
+gh auth login
+gh workflow run integration.yml --repo AkaMario/blacklist_app --ref main
+gh run list --repo AkaMario/blacklist_app --workflow integration.yml --limit 1
+```
+
+Para seguir una ejecución específica, reemplazar `ID_DE_EJECUCION` por el ID que
+muestre el último comando:
+
+```sh
+gh run watch ID_DE_EJECUCION --repo AkaMario/blacklist_app --exit-status
+gh run download ID_DE_EJECUCION --repo AkaMario/blacklist_app \
+  --name black-list-newman-report --dir reports/github
+```
+
+También se ejecutará automáticamente al fusionar un próximo pull request en
+`main`. Para completar la evidencia remota, registrar el enlace de la ejecución,
+su conclusión y el reporte generado; el resultado local no sustituye esa evidencia.
+
+## 6. Entregables y cumplimiento
+
+| Objetivo solicitado | Entregable o evidencia | Estado |
+| --- | --- | --- |
+| Crear colección de capacidades | `Black_list`, con 20 peticiones y scripts de validación | Creada como JSON importable; importación en la cuenta de Postman pendiente |
+| Exportar JSON de la colección | `tests/integration/postman/Black_list.postman_collection.json` | Archivo generado; exportación desde la interfaz de Postman pendiente |
+| Ejecutar Newman localmente | 20 peticiones y 58 aserciones, 0 fallos | Completado |
+| Añadir job `pruebas_integracion` | `.github/workflows/integration.yml` | Publicado; resultado remoto pendiente de confirmar |
+| Incluir enlace del repositorio y paso a paso | Secciones de este informe | Completado |
+| Entregar informe Markdown en `/docs` | `docs/informe_pruebas_integracion.md` | Completado |
+
+Archivos auxiliares:
+
+- [Script de ejecución local](../tests/integration/run-local.sh): inicia y detiene
+  los servicios temporales, ejecuta Newman y devuelve su código de salida.
+- [Guía de la colección](../tests/integration/postman/README.md): variables e importación.
+- [README principal](../README.md): enlaza este informe y la guía de pruebas.
+
+## Conclusión
+
+La integración local de la API con PostgreSQL se validó mediante 20 peticiones
+HTTPS y 58 aserciones exitosas. La colección JSON y la automatización están
+publicadas en el repositorio. Queda pendiente incorporar la evidencia de una
+ejecución de GitHub Actions y, si el ejercicio exige realizar esos pasos en la
+interfaz de Postman, importar y exportar allí la colección entregada.
 
 ## Referencias
 

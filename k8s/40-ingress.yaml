@@ -1,0 +1,20 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: blacklist-app
+  namespace: curso
+spec:
+  # Requiere un controlador Ingress de clase nginx instalado en el cluster.
+  ingressClassName: nginx
+  rules:
+    # Resolver este dominio a la direccion del controlador Ingress.
+    - host: blacklist.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: blacklist-app
+                port:
+                  number: 80

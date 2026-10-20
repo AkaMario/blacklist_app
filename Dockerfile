@@ -39,13 +39,13 @@ COPY --from=base /app /app
 COPY ./src /app/src
 
 # Crea el usuario y el grupo noroot
-RUN groupadd -r noroot && useradd -r -g noroot noroot
+RUN groupadd -r -g 10001 noroot && useradd -r -u 10001 -g noroot noroot
 
 # Le damos la propiedad de la carpeta /app al usuario noroot
 RUN chown -R noroot:noroot /app
 
 # Definimos el usuario con el que se ejecutará el contenedor
-USER noroot
+USER 10001:10001
 
 # Expose port
 EXPOSE 8080
